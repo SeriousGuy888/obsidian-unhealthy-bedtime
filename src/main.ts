@@ -117,11 +117,11 @@ class PermissionToCreateDailyNoteModal extends Modal {
 		p.setText(
 			"Today's daily note doesn't exist yet. Do you want to create it?"
 		);
-		const frament = new DocumentFragment();
-		frament.appendChild(p);
-		frament.appendChild(br);
+		const fragment = new DocumentFragment();
+		fragment.appendChild(p);
+		fragment.appendChild(br);
 
-		this.setContent(frament);
+		this.setContent(fragment);
 
 		this.init();
 	}
