@@ -28,7 +28,7 @@ export default class UnhealthyBedtimePlugin extends Plugin {
 			callback: async () => {
 				const shouldBeBold =
 					!this.settings.confirmBeforeCreatingNonexistentDailyNote;
-				
+
 				if (shouldBeBold) {
 					void this.tryOpenTodaysDailyNote(true);
 				} else {
@@ -64,7 +64,8 @@ export default class UnhealthyBedtimePlugin extends Plugin {
 	}
 
 	/**
-	 * @returns true if successful, false if the note doesn't exist yet
+	 * @returns false if the note doesn't exist yet and the function was instructed not to try and create it,
+	 *          true otherwise (regardless of whether creation succeeded)
 	 */
 	async tryOpenTodaysDailyNote(
 		shouldCreateIfNonexistent: boolean
@@ -83,6 +84,7 @@ export default class UnhealthyBedtimePlugin extends Plugin {
 			// If today's daily note doesn't actually exist.
 
 			if (shouldCreateIfNonexistent) {
+				// this never throws an error seemingly, though it might return undefined
 				todaysDailyNote = await createDailyNote(offsetNow);
 			} else {
 				return false;
@@ -90,7 +92,7 @@ export default class UnhealthyBedtimePlugin extends Plugin {
 		}
 
 		const leaf = this.app.workspace.getLeaf();
-		void leaf.openFile(todaysDailyNote); // im pretty sure this promise never rejects, even if file doesn't exist
+		void leaf.openFile(todaysDailyNote); // this never seems to throw, even if file is undefined
 
 		console.debug(
 			`now = ${new Date().toLocaleString()}.\n`,
