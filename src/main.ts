@@ -40,7 +40,7 @@ export default class UnhealthyBedtimePlugin extends Plugin {
 						new PermissionToCreateDailyNoteModal(
 							this.app,
 							this,
-							() => this.tryOpenTodaysDailyNote(true)
+							() => void this.tryOpenTodaysDailyNote(true)
 						).open();
 					}
 				}
@@ -110,7 +110,7 @@ class PermissionToCreateDailyNoteModal extends Modal {
 		private readonly createNoteCallback: () => void
 	) {
 		super(app);
-		this.setTitle("New Daily Note");
+		this.setTitle("New Daily Note"); // eslint-disable-line obsidianmd/ui/sentence-case
 
 		const br = document.createElement("br");
 		const p = document.createElement("p");
@@ -153,9 +153,10 @@ class PermissionToCreateDailyNoteModal extends Modal {
 					.onClick(() => {
 						this.close();
 						this.createNoteCallback();
+
 						this.plugin.settings.confirmBeforeCreatingNonexistentDailyNote =
 							false;
-						this.plugin.saveSettings();
+						void this.plugin.saveSettings();
 					});
 			});
 	}

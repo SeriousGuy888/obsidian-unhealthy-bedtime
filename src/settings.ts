@@ -88,7 +88,7 @@ export class UnhealthyBedtimeSettingTab extends PluginSettingTab {
 					.onChange((value) => {
 						this.plugin.settings.confirmBeforeCreatingNonexistentDailyNote =
 							value;
-						this.plugin.saveSettings();
+						void this.plugin.saveSettings();
 					});
 			});
 	}
