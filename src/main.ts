@@ -1,10 +1,14 @@
-import { Plugin, moment } from "obsidian";
+import { App, ButtonComponent, Modal, Plugin, Setting, moment } from "obsidian";
 import {
 	DEFAULT_SETTINGS,
 	UnhealthyBedtimeSettings,
 	UnhealthyBedtimeSettingTab,
 } from "./settings";
-import { getAllDailyNotes, getDailyNote } from "obsidian-daily-notes-interface";
+import {
+	createDailyNote,
+	getAllDailyNotes,
+	getDailyNote,
+} from "obsidian-daily-notes-interface";
 
 // Remember to rename these classes and interfaces!
 
@@ -21,13 +25,30 @@ export default class UnhealthyBedtimePlugin extends Plugin {
 		this.addCommand({
 			id: "open-todays-daily-note-in-current-leaf",
 			name: "Open today's daily note while considering configured bedtime",
-			callback: () => {
-				void this.openTodaysDailyNote();
+			callback: async () => {
+				const shouldCreateWithoutConfirmation =
+					!this.settings.confirmBeforeCreatingNonexistentDailyNote;
+
+				const managedToOpen = await this.tryOpenTodaysDailyNote(
+					shouldCreateWithoutConfirmation
+				);
+
+				if (!managedToOpen && !shouldCreateWithoutConfirmation) {
+					// if failed to open, and the first attempt did not try to create the note
+
+					new PermissionToCreateDailyNoteModal(
+						this.app,
+						this,
+						() => void this.tryOpenTodaysDailyNote(true)
+					).open();
+				}
 			},
 		});
 	}
 
-	onunload() {}
+	onunload() {
+		// nothing needed here for now
+	}
 
 	async loadSettings() {
 		this.settings = {
@@ -40,7 +61,13 @@ export default class UnhealthyBedtimePlugin extends Plugin {
 		await this.saveData(this.settings);
 	}
 
-	async openTodaysDailyNote() {
+	/**
+	 * @returns false if the note doesn't exist, or if an attempt to create it was made, but failed
+	 *          true if successful
+	 */
+	async tryOpenTodaysDailyNote(
+		shouldCreateIfNonexistent: boolean
+	): Promise<boolean> {
 		// Get the current time, and then pretend the current time is actually <cutoff> minutes before that.
 		const offsetNow = moment().subtract(
 			this.settings.minutesAfterMidnightCutoff,
@@ -49,16 +76,95 @@ export default class UnhealthyBedtimePlugin extends Plugin {
 
 		// Open the daily note for the time that we're pretending it is.
 		const allDailyNotes = getAllDailyNotes();
-		const todaysDailyNote = getDailyNote(offsetNow, allDailyNotes);
+		let todaysDailyNote = getDailyNote(offsetNow, allDailyNotes);
+
+		if (!todaysDailyNote) {
+			// If today's daily note doesn't actually exist.
+
+			if (shouldCreateIfNonexistent) {
+				// this never throws an error seemingly, though it might return undefined
+				todaysDailyNote = await createDailyNote(offsetNow);
+			} else {
+				return false;
+			}
+		}
+
 		const leaf = this.app.workspace.getLeaf();
 
-		void leaf.openFile(todaysDailyNote);
+		if (todaysDailyNote) {
+			void leaf.openFile(todaysDailyNote); // this never seems to throw, even if file is undefined
 
-		console.debug(
-			`now = ${new Date().toLocaleString()}.\n`,
-			`cutoff = ${this.settings.minutesAfterMidnightCutoff} minutes.\n`,
-			`pretending that now = ${offsetNow.toDate().toLocaleString()}.\n`,
-			`Therefore opening ${todaysDailyNote.name}.`
+			console.debug(
+				`now = ${new Date().toLocaleString()}.\n`,
+				`cutoff = ${this.settings.minutesAfterMidnightCutoff} minutes.\n`,
+				`pretending that now = ${offsetNow
+					.toDate()
+					.toLocaleString()}.\n`,
+				`Therefore opening ${todaysDailyNote.name}.`
+			);
+			return true;
+		}
+
+		console.warn("Failed to retrieve or create daily note.")
+		return false;
+	}
+}
+
+class PermissionToCreateDailyNoteModal extends Modal {
+	constructor(
+		app: App,
+		private readonly plugin: UnhealthyBedtimePlugin,
+		private readonly createNoteCallback: () => void
+	) {
+		super(app);
+		this.setTitle("New Daily Note"); // eslint-disable-line obsidianmd/ui/sentence-case
+
+		const br = document.createElement("br");
+		const p = document.createElement("p");
+		p.setText(
+			"Today's daily note doesn't exist yet. Do you want to create it?"
 		);
+		const fragment = new DocumentFragment();
+		fragment.appendChild(p);
+		fragment.appendChild(br);
+
+		this.setContent(fragment);
+
+		this.init();
+	}
+
+	private init() {
+		// sonarlint made me move the asynchronous stuff outside of the constructor :(
+
+		new Setting(this.contentEl)
+			.addButton((button: ButtonComponent) => {
+				button.setButtonText("Never mind").onClick(() => {
+					this.close();
+				});
+			})
+			.addButton((button: ButtonComponent) => {
+				button
+					.setButtonText("Create")
+					.setCta()
+					.onClick(() => {
+						this.close();
+						this.createNoteCallback();
+					});
+			});
+		new Setting(this.contentEl)
+			.setDesc("You can change this later in the plugin settings.")
+			.addButton((button: ButtonComponent) => {
+				button
+					.setButtonText("Create and don't ask again")
+					.setCta()
+					.onClick(() => {
+						this.close();
+						this.createNoteCallback();
+
+						this.plugin.settings.confirmBeforeCreatingNonexistentDailyNote =
+							false;
+						void this.plugin.saveSettings();
+					});
+			});
 	}
 }
