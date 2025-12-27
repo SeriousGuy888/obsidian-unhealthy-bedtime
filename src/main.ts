@@ -62,8 +62,8 @@ export default class UnhealthyBedtimePlugin extends Plugin {
 	}
 
 	/**
-	 * @returns false if the note doesn't exist yet and the function was instructed not to try and create it,
-	 *          true otherwise (regardless of whether creation succeeded)
+	 * @returns false if the note doesn't exist, or if an attempt to create it was made, but failed
+	 *          true if successful
 	 */
 	async tryOpenTodaysDailyNote(
 		shouldCreateIfNonexistent: boolean
