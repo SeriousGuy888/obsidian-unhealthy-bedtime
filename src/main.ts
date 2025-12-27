@@ -1,9 +1,4 @@
-import {
-	App,
-	Modal,
-	Plugin,
-	moment,
-} from "obsidian";
+import { Plugin, moment } from "obsidian";
 import {
 	DEFAULT_SETTINGS,
 	UnhealthyBedtimeSettings,
@@ -65,21 +60,5 @@ export default class UnhealthyBedtimePlugin extends Plugin {
 			`pretending that now = ${offsetNow.toDate().toLocaleString()}.\n`,
 			`Therefore opening ${todaysDailyNote.name}.`
 		);
-	}
-}
-
-class SampleModal extends Modal {
-	constructor(app: App) {
-		super(app);
-	}
-
-	onOpen() {
-		let { contentEl } = this;
-		contentEl.setText("Woah!");
-	}
-
-	onClose() {
-		const { contentEl } = this;
-		contentEl.empty();
 	}
 }
