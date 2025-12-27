@@ -74,10 +74,10 @@ export class UnhealthyBedtimeSettingTab extends PluginSettingTab {
 			});
 
 		new Setting(this.containerEl)
-			.setName("Ask before creating daily note")
+			.setName("Confirm before creating daily note")
 			.setDesc(
-				"If when you try to open today's daily note, the note doesn't exist yet, " +
-					"should the plugin ask before creating it or just create it without asking?"
+				"If today's daily note does not exist yet: when this is on, you will be asked to confirm before the note is created; " +
+					"when this is off, the note will be created automatically without asking."
 			)
 			.addToggle((toggle: ToggleComponent) => {
 				toggle
