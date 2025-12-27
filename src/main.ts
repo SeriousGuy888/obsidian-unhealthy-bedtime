@@ -1,10 +1,14 @@
-import { Plugin, moment } from "obsidian";
+import { App, ButtonComponent, Modal, Plugin, Setting, moment } from "obsidian";
 import {
 	DEFAULT_SETTINGS,
 	UnhealthyBedtimeSettings,
 	UnhealthyBedtimeSettingTab,
 } from "./settings";
-import { getAllDailyNotes, getDailyNote } from "obsidian-daily-notes-interface";
+import {
+	createDailyNote,
+	getAllDailyNotes,
+	getDailyNote,
+} from "obsidian-daily-notes-interface";
 
 // Remember to rename these classes and interfaces!
 
@@ -21,8 +25,14 @@ export default class UnhealthyBedtimePlugin extends Plugin {
 		this.addCommand({
 			id: "open-todays-daily-note-in-current-leaf",
 			name: "Open today's daily note while considering configured bedtime",
-			callback: () => {
-				void this.openTodaysDailyNote();
+			callback: async () => {
+				const managedToOpen = await this.tryOpenTodaysDailyNote(false);
+
+				if (!managedToOpen) {
+					new PermissionToCreateDailyNoteModal(this.app, () =>
+						this.tryOpenTodaysDailyNote(true)
+					).open();
+				}
 			},
 		});
 	}
@@ -40,7 +50,12 @@ export default class UnhealthyBedtimePlugin extends Plugin {
 		await this.saveData(this.settings);
 	}
 
-	async openTodaysDailyNote() {
+	/**
+	 * @returns true if successful, false if the note doesn't exist yet
+	 */
+	async tryOpenTodaysDailyNote(
+		shouldCreateIfNonexistent: boolean
+	): Promise<boolean> {
 		// Get the current time, and then pretend the current time is actually <cutoff> minutes before that.
 		const offsetNow = moment().subtract(
 			this.settings.minutesAfterMidnightCutoff,
@@ -49,10 +64,20 @@ export default class UnhealthyBedtimePlugin extends Plugin {
 
 		// Open the daily note for the time that we're pretending it is.
 		const allDailyNotes = getAllDailyNotes();
-		const todaysDailyNote = getDailyNote(offsetNow, allDailyNotes);
-		const leaf = this.app.workspace.getLeaf();
+		let todaysDailyNote = getDailyNote(offsetNow, allDailyNotes);
 
-		void leaf.openFile(todaysDailyNote);
+		if (!todaysDailyNote) {
+			// If today's daily note doesn't actually exist.
+
+			if (shouldCreateIfNonexistent) {
+				todaysDailyNote = await createDailyNote(offsetNow);
+			} else {
+				return false;
+			}
+		}
+
+		const leaf = this.app.workspace.getLeaf();
+		void leaf.openFile(todaysDailyNote); // im pretty sure this promise never rejects, even if file doesn't exist
 
 		console.debug(
 			`now = ${new Date().toLocaleString()}.\n`,
@@ -60,5 +85,39 @@ export default class UnhealthyBedtimePlugin extends Plugin {
 			`pretending that now = ${offsetNow.toDate().toLocaleString()}.\n`,
 			`Therefore opening ${todaysDailyNote.name}.`
 		);
+
+		return true;
+	}
+}
+
+class PermissionToCreateDailyNoteModal extends Modal {
+	constructor(app: App, private readonly createNoteCallback: () => void) {
+		super(app);
+		this.setTitle("New Daily Note");
+		this.setContent(
+			"Today's daily note doesn't exist yet. Do you want to create it?"
+		);
+
+		this.init();
+	}
+
+	private init() {
+		// sonarlint made me move the asynchronous stuff outside of the constructor :(
+
+		new Setting(this.contentEl)
+			.addButton((button: ButtonComponent) => {
+				button.setButtonText("Never mind").onClick(() => {
+					this.close();
+				});
+			})
+			.addButton((button: ButtonComponent) => {
+				button
+					.setButtonText("Create")
+					.setCta()
+					.onClick(() => {
+						this.close();
+						this.createNoteCallback();
+					});
+			});
 	}
 }
