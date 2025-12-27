@@ -4,15 +4,18 @@ import {
 	PluginSettingTab,
 	Setting,
 	TextComponent,
+	ToggleComponent,
 } from "obsidian";
 import UnhealthyBedtimePlugin from "./main";
 
 export interface UnhealthyBedtimeSettings {
 	minutesAfterMidnightCutoff: number;
+	confirmBeforeCreatingNonexistentDailyNote: boolean;
 }
 
 export const DEFAULT_SETTINGS: Partial<UnhealthyBedtimeSettings> = {
 	minutesAfterMidnightCutoff: 4 * 60,
+	confirmBeforeCreatingNonexistentDailyNote: true,
 };
 
 export class UnhealthyBedtimeSettingTab extends PluginSettingTab {
@@ -52,10 +55,7 @@ export class UnhealthyBedtimeSettingTab extends PluginSettingTab {
 					)
 					.onChange(async (value: string) => {});
 
-				new SexagesimalTimeSuggest( // nosonar
-					this.plugin.app,
-					text.inputEl
-				);
+				new SexagesimalTimeSuggest(this.plugin.app, text.inputEl); // nosonar
 
 				// Wait for the user to deselect before writing their changes and converting to standard format.
 				this.plugin.registerDomEvent(
@@ -71,6 +71,25 @@ export class UnhealthyBedtimeSettingTab extends PluginSettingTab {
 						text.setValue(minutesToSexagesimal(minutes));
 					}
 				);
+			});
+
+		new Setting(this.containerEl)
+			.setName("Ask before creating daily note")
+			.setDesc(
+				"If when you try to open today's daily note, the note doesn't exist yet, " +
+					"should the plugin ask before creating it or just create it without asking?"
+			)
+			.addToggle((toggle: ToggleComponent) => {
+				toggle
+					.setValue(
+						this.plugin.settings
+							.confirmBeforeCreatingNonexistentDailyNote
+					)
+					.onChange((value) => {
+						this.plugin.settings.confirmBeforeCreatingNonexistentDailyNote =
+							value;
+						this.plugin.saveSettings();
+					});
 			});
 	}
 }

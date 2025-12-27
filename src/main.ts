@@ -26,18 +26,31 @@ export default class UnhealthyBedtimePlugin extends Plugin {
 			id: "open-todays-daily-note-in-current-leaf",
 			name: "Open today's daily note while considering configured bedtime",
 			callback: async () => {
-				const managedToOpen = await this.tryOpenTodaysDailyNote(false);
+				const shouldBeBold =
+					!this.settings.confirmBeforeCreatingNonexistentDailyNote;
+				
+				if (shouldBeBold) {
+					void this.tryOpenTodaysDailyNote(true);
+				} else {
+					const managedToOpen = await this.tryOpenTodaysDailyNote(
+						false
+					);
 
-				if (!managedToOpen) {
-					new PermissionToCreateDailyNoteModal(this.app, () =>
-						this.tryOpenTodaysDailyNote(true)
-					).open();
+					if (!managedToOpen) {
+						new PermissionToCreateDailyNoteModal(
+							this.app,
+							this,
+							() => this.tryOpenTodaysDailyNote(true)
+						).open();
+					}
 				}
 			},
 		});
 	}
 
-	onunload() {}
+	onunload() {
+		// nothing needed here for now
+	}
 
 	async loadSettings() {
 		this.settings = {
@@ -91,12 +104,24 @@ export default class UnhealthyBedtimePlugin extends Plugin {
 }
 
 class PermissionToCreateDailyNoteModal extends Modal {
-	constructor(app: App, private readonly createNoteCallback: () => void) {
+	constructor(
+		app: App,
+		private readonly plugin: UnhealthyBedtimePlugin,
+		private readonly createNoteCallback: () => void
+	) {
 		super(app);
 		this.setTitle("New Daily Note");
-		this.setContent(
+
+		const br = document.createElement("br");
+		const p = document.createElement("p");
+		p.setText(
 			"Today's daily note doesn't exist yet. Do you want to create it?"
 		);
+		const frament = new DocumentFragment();
+		frament.appendChild(p);
+		frament.appendChild(br);
+
+		this.setContent(frament);
 
 		this.init();
 	}
@@ -117,6 +142,20 @@ class PermissionToCreateDailyNoteModal extends Modal {
 					.onClick(() => {
 						this.close();
 						this.createNoteCallback();
+					});
+			});
+		new Setting(this.contentEl)
+			.setDesc("You can change this later in the plugin settings.")
+			.addButton((button: ButtonComponent) => {
+				button
+					.setButtonText("Create and don't ask again")
+					.setCta()
+					.onClick(() => {
+						this.close();
+						this.createNoteCallback();
+						this.plugin.settings.confirmBeforeCreatingNonexistentDailyNote =
+							false;
+						this.plugin.saveSettings();
 					});
 			});
 	}
