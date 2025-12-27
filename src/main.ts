@@ -26,23 +26,21 @@ export default class UnhealthyBedtimePlugin extends Plugin {
 			id: "open-todays-daily-note-in-current-leaf",
 			name: "Open today's daily note while considering configured bedtime",
 			callback: async () => {
-				const shouldSkipConfirmation =
+				const shouldCreateWithoutConfirmation =
 					!this.settings.confirmBeforeCreatingNonexistentDailyNote;
-				
-				if (shouldSkipConfirmation) {
-					void this.tryOpenTodaysDailyNote(true);
-				} else {
-					const managedToOpen = await this.tryOpenTodaysDailyNote(
-						false
-					);
 
-					if (!managedToOpen) {
-						new PermissionToCreateDailyNoteModal(
-							this.app,
-							this,
-							() => void this.tryOpenTodaysDailyNote(true)
-						).open();
-					}
+				const managedToOpen = await this.tryOpenTodaysDailyNote(
+					shouldCreateWithoutConfirmation
+				);
+
+				if (!managedToOpen && !shouldCreateWithoutConfirmation) {
+					// if failed to open, and the first attempt did not try to create the note
+
+					new PermissionToCreateDailyNoteModal(
+						this.app,
+						this,
+						() => void this.tryOpenTodaysDailyNote(true)
+					).open();
 				}
 			},
 		});
