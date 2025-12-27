@@ -90,16 +90,23 @@ export default class UnhealthyBedtimePlugin extends Plugin {
 		}
 
 		const leaf = this.app.workspace.getLeaf();
-		void leaf.openFile(todaysDailyNote); // this never seems to throw, even if file is undefined
 
-		console.debug(
-			`now = ${new Date().toLocaleString()}.\n`,
-			`cutoff = ${this.settings.minutesAfterMidnightCutoff} minutes.\n`,
-			`pretending that now = ${offsetNow.toDate().toLocaleString()}.\n`,
-			`Therefore opening ${todaysDailyNote.name}.`
-		);
+		if (todaysDailyNote) {
+			void leaf.openFile(todaysDailyNote); // this never seems to throw, even if file is undefined
 
-		return true;
+			console.debug(
+				`now = ${new Date().toLocaleString()}.\n`,
+				`cutoff = ${this.settings.minutesAfterMidnightCutoff} minutes.\n`,
+				`pretending that now = ${offsetNow
+					.toDate()
+					.toLocaleString()}.\n`,
+				`Therefore opening ${todaysDailyNote.name}.`
+			);
+			return true;
+		}
+
+		console.warn("Failed to retrieve or create daily note.")
+		return false;
 	}
 }
 
