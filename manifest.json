@@ -1,11 +1,10 @@
 {
-	"id": "sample-plugin",
-	"name": "Sample Plugin",
+	"id": "unhealthy-bedtime",
+	"name": "Unhealthy Bedtime",
 	"version": "1.0.0",
-	"minAppVersion": "0.15.0",
-	"description": "Demonstrates some of the capabilities of the Obsidian API.",
-	"author": "Obsidian",
-	"authorUrl": "https://obsidian.md",
-	"fundingUrl": "https://obsidian.md/pricing",
+	"minAppVersion": "1.10.6",
+	"description": "Open the correct daily note even if you go to bed past midnight. Warns you if you might be writing in the wrong daily note.",
+	"author": "SeriousGuy888",
+	"authorUrl": "https://github.com/SeriousGuy888",
 	"isDesktopOnly": false
 }
