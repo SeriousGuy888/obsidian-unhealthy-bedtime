@@ -4,6 +4,7 @@
 	"description": "This is a sample plugin for Obsidian (https://obsidian.md)",
 	"main": "main.js",
 	"type": "module",
+	"packageManager": "pnpm@10.26.2",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
@@ -16,6 +17,7 @@
 		"@eslint/js": "9.30.1",
 		"@types/node": "^16.18.126",
 		"esbuild": "0.25.5",
+		"eslint": "^9.39.2",
 		"eslint-plugin-obsidianmd": "0.1.9",
 		"globals": "14.0.0",
 		"jiti": "2.6.1",
