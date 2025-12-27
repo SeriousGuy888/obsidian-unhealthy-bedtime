@@ -1,36 +1,33 @@
 import {
 	App,
-	Editor,
-	MarkdownView,
 	Modal,
-	Notice,
 	Plugin,
 	moment,
 } from "obsidian";
 import {
 	DEFAULT_SETTINGS,
-	MyPluginSettings,
-	SampleSettingTab,
+	UnhealthyBedtimeSettings,
+	UnhealthyBedtimeSettingTab,
 } from "./settings";
 import { getAllDailyNotes, getDailyNote } from "obsidian-daily-notes-interface";
 
 // Remember to rename these classes and interfaces!
 
 export default class UnhealthyBedtimePlugin extends Plugin {
-	settings: MyPluginSettings;
+	settings: UnhealthyBedtimeSettings;
 
 	async onload() {
 		await this.loadSettings();
 
 		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new SampleSettingTab(this.app, this));
+		this.addSettingTab(new UnhealthyBedtimeSettingTab(this.app, this));
 
 		// Register commands
 		this.addCommand({
 			id: "open-todays-daily-note-in-current-leaf",
 			name: "Open today's daily note while considering configured bedtime",
 			callback: () => {
-				this.openTodaysDailyNote();
+				void this.openTodaysDailyNote();
 			},
 		});
 	}
@@ -40,7 +37,7 @@ export default class UnhealthyBedtimePlugin extends Plugin {
 	async loadSettings() {
 		this.settings = {
 			...DEFAULT_SETTINGS,
-			...((await this.loadData()) as Partial<MyPluginSettings>),
+			...((await this.loadData()) as UnhealthyBedtimeSettings),
 		};
 	}
 
@@ -49,10 +46,25 @@ export default class UnhealthyBedtimePlugin extends Plugin {
 	}
 
 	async openTodaysDailyNote() {
+		// Get the current time, and then pretend the current time is actually <cutoff> minutes before that.
+		const offsetNow = moment().subtract(
+			this.settings.minutesAfterMidnightCutoff,
+			"minutes"
+		);
+
+		// Open the daily note for the time that we're pretending it is.
 		const allDailyNotes = getAllDailyNotes();
-		const todaysDailyNote = getDailyNote(moment(), allDailyNotes);
-		const leaf = this.app.workspace.getLeaf()
-		leaf.openFile(todaysDailyNote)
+		const todaysDailyNote = getDailyNote(offsetNow, allDailyNotes);
+		const leaf = this.app.workspace.getLeaf();
+
+		void leaf.openFile(todaysDailyNote);
+
+		console.debug(
+			`now = ${new Date().toLocaleString()}.\n`,
+			`cutoff = ${this.settings.minutesAfterMidnightCutoff} minutes.\n`,
+			`pretending that now = ${offsetNow.toDate().toLocaleString()}.\n`,
+			`Therefore opening ${todaysDailyNote.name}.`
+		);
 	}
 }
 
