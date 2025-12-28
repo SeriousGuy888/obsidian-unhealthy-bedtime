@@ -1,4 +1,15 @@
-import { App, ButtonComponent, Modal, Plugin, Setting, moment } from "obsidian";
+import {
+	App,
+	ButtonComponent,
+	FileView,
+	Modal,
+	Plugin,
+	Setting,
+	TFile,
+	WorkspaceLeaf,
+	moment,
+	normalizePath,
+} from "obsidian";
 import {
 	DEFAULT_SETTINGS,
 	UnhealthyBedtimeSettings,
@@ -6,14 +17,31 @@ import {
 } from "./settings";
 import {
 	createDailyNote,
+	DEFAULT_DAILY_NOTE_FORMAT,
 	getAllDailyNotes,
 	getDailyNote,
+	getDailyNoteSettings,
 } from "obsidian-daily-notes-interface";
+import {
+	removeInlineTitleAnnotation,
+	updateInlineTitleAnnotation,
+} from "inlineTitleAnnotation";
 
 // Remember to rename these classes and interfaces!
 
 export default class UnhealthyBedtimePlugin extends Plugin {
+	private static singletonInstance: UnhealthyBedtimePlugin; // nosonar
+
 	settings: UnhealthyBedtimeSettings;
+
+	constructor(app: App, manifest: any) {
+		super(app, manifest);
+		UnhealthyBedtimePlugin.singletonInstance = this;
+	}
+
+	static getInstance(): UnhealthyBedtimePlugin {
+		return UnhealthyBedtimePlugin.singletonInstance;
+	}
 
 	async onload() {
 		await this.loadSettings();
@@ -44,10 +72,49 @@ export default class UnhealthyBedtimePlugin extends Plugin {
 				}
 			},
 		});
+
+		this.app.workspace.onLayoutReady(() => {
+			this.updateAnnotationsOnOpenDailyNotes();
+
+			this.registerEvent(
+				this.app.vault.on("rename", (renamedFile: TFile) => {
+					this.updateAnnotationsOnOpenDailyNotes(renamedFile);
+				})
+			);
+
+			this.registerEvent(
+				// update annotations when the user switches between live preview and reading mode
+				// (which is needed because reading mode uses different dom elements from live preview mode,
+				// so the annotation has to be created again)
+				this.app.workspace.on("layout-change", () => {
+					this.updateAnnotationsOnOpenDailyNotes();
+				})
+			);
+
+			this.registerEvent(
+				this.app.workspace.on(
+					"active-leaf-change",
+					(leaf: WorkspaceLeaf | null) => {
+						if (
+							leaf &&
+							leaf.view instanceof FileView &&
+							leaf.view.file
+						) {
+							updateInlineTitleAnnotation(
+								this.app.workspace.getLeaf(),
+								leaf.view.file
+							);
+						}
+					}
+				)
+			);
+		});
 	}
 
 	onunload() {
-		// nothing needed here for now
+		this.app.workspace.getLeavesOfType("markdown").forEach((leaf) => {
+			removeInlineTitleAnnotation(leaf);
+		});
 	}
 
 	async loadSettings() {
@@ -59,6 +126,80 @@ export default class UnhealthyBedtimePlugin extends Plugin {
 
 	async saveSettings() {
 		await this.saveData(this.settings);
+	}
+
+	/**
+	 * @param specificallyThisFile If specified, only the annotations on views that have
+	 *                             this specific file open will be updated.
+	 *                             If not specified, then all views that have a daily note open
+	 *                             will have their annotations updated.
+	 */
+	updateAnnotationsOnOpenDailyNotes(specificallyThisFile?: TFile) {
+		this.app.workspace.getLeavesOfType("markdown").forEach((leaf) => {
+			const view = leaf.view;
+			const isFileView = view instanceof FileView;
+
+			// don't bother if this view isn't even editing a file
+			if (!isFileView || !view.file) {
+				return;
+			}
+
+			// if we're searching to update only views that have open one specific file,
+			// then don't bother if the file this view has open is not that file
+			if (specificallyThisFile && view.file !== specificallyThisFile) {
+				return;
+			}
+
+			// don't bother if the note isn't a daily note
+			if (this.isDailyNote(view.file)) {
+				updateInlineTitleAnnotation(leaf, view.file);
+			}
+		});
+	}
+
+	isDailyNote(file: TFile): boolean {
+		return !!this.getDailyNoteCharacteristics(file);
+	}
+
+	getDailyNoteCharacteristics(
+		file: TFile
+	): { from: moment.Moment; to: moment.Moment } | null {
+		const { folder, format } = {
+			folder: "",
+			format: DEFAULT_DAILY_NOTE_FORMAT,
+			...getDailyNoteSettings(),
+		};
+
+		// console.debug(
+		// 	file,
+		// 	file.basename,
+		// 	file.extension,
+		// 	file.name,
+		// 	file.path,
+		// 	folder
+		// );
+
+		if (file.extension.toLowerCase() !== "md") {
+			return null;
+		}
+
+		if (
+			normalizePath(file.path) !== normalizePath(folder + "/" + file.name)
+		) {
+			return null;
+		}
+
+		const offsetStartOfTheDay = moment(file.basename, format, true).add(
+			this.settings.minutesAfterMidnightCutoff,
+			"minutes"
+		);
+		const offsetEndOfTheDay = offsetStartOfTheDay.clone().add(1, "day");
+
+		if (!offsetStartOfTheDay.isValid()) {
+			return null;
+		}
+
+		return { from: offsetStartOfTheDay, to: offsetEndOfTheDay };
 	}
 
 	/**
@@ -75,8 +216,7 @@ export default class UnhealthyBedtimePlugin extends Plugin {
 		);
 
 		// Open the daily note for the time that we're pretending it is.
-		const allDailyNotes = getAllDailyNotes();
-		let todaysDailyNote = getDailyNote(offsetNow, allDailyNotes);
+		let todaysDailyNote = getDailyNote(offsetNow, getAllDailyNotes());
 
 		if (!todaysDailyNote) {
 			// If today's daily note doesn't actually exist.
@@ -105,7 +245,7 @@ export default class UnhealthyBedtimePlugin extends Plugin {
 			return true;
 		}
 
-		console.warn("Failed to retrieve or create daily note.")
+		console.warn("Failed to retrieve or create daily note.");
 		return false;
 	}
 }
