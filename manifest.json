@@ -1,7 +1,7 @@
 {
 	"id": "unhealthy-bedtime",
 	"name": "Unhealthy Bedtime",
-	"version": "1.0.0",
+	"version": "0.0.1",
 	"minAppVersion": "1.10.6",
 	"description": "Open the correct daily note even if you go to bed past midnight. Warns you if you might be writing in the wrong daily note.",
 	"author": "SeriousGuy888",

@@ -1,7 +1,7 @@
 {
-	"name": "obsidian-sample-plugin",
-	"version": "1.0.0",
-	"description": "This is a sample plugin for Obsidian (https://obsidian.md)",
+	"name": "obsidian-unhealthy-bedtime",
+	"version": "0.0.1",
+	"description": "Obsidian plugin to help prevent accidentally writing in the wrong daily note if you go to bed past midnight",
 	"main": "main.js",
 	"type": "module",
 	"packageManager": "pnpm@10.26.2",
